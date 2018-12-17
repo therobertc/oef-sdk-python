@@ -1,0 +1,124 @@
+syntax = "proto2";
+
+package fetch.oef.pb;
+
+message Query {
+    message Attribute {
+        enum Type {
+            DOUBLE  = 0;
+            INT    = 1;
+            BOOL   = 2;
+            STRING = 3;
+        }
+        required string name = 1;
+        required Type type = 2;
+        required bool required = 3;
+        optional string description = 4;
+    }
+    message DataModel {
+        required string name = 1;
+        repeated Attribute attributes = 2;
+        optional string description = 3;
+    }
+    message Value {
+        oneof value {
+            string s = 1;
+            double d = 2;
+            bool b = 3;
+            int64 i = 4;
+        }
+    }
+    message KeyValue {
+        required string key = 1;
+        required Value value = 2;
+    }
+    message Instance {
+        required DataModel model = 1;
+        repeated KeyValue values = 2;
+    }
+    message StringPair {
+        required string first = 1;
+        required string second = 2;
+    }
+    message IntPair {
+        required int64 first = 1;
+        required int64 second = 2;
+    }
+    message DoublePair {
+        required double first = 1;
+        required double second = 2;
+    }
+    message Range {
+        oneof pair {
+            StringPair s = 1;
+            IntPair i = 2;
+            DoublePair d = 3;
+        }
+    }
+    message Relation {
+        enum Operator {
+            EQ    = 0; // =
+            LT    = 1; // <
+            LTEQ  = 2; // <=
+            GT    = 3; // >
+            GTEQ  = 4; // >=
+            NOTEQ = 5; // !=, <>
+        }
+        required Operator op = 1;
+        required Value val = 2;
+    }
+    message Set {
+        message Values {
+            message Ints {
+                repeated int64 vals = 1;
+            }
+            message Doubles {
+                repeated double vals = 1;
+            }
+            message Strings {
+                repeated string vals = 1;
+            }
+            message Bools {
+                repeated bool vals = 1;
+            }
+            oneof values {
+                Strings s = 1;
+                Doubles d = 2;
+                Bools b = 3;
+                Ints i = 4;
+            }
+        }
+        enum Operator {
+            IN    = 0;
+            NOTIN = 1;
+        }
+        required Operator op = 1;
+        required Values vals = 2;
+    }
+    message Constraint {
+        message ConstraintType {
+            message Or {
+                repeated ConstraintType expr = 1;
+            }
+            message And {
+                repeated ConstraintType expr = 1;
+            }
+            oneof constraint {
+                Or or_ = 1;
+                And and_ = 2;
+                Set set_ = 3;
+                Range range_ = 4;
+                Relation relation = 5;
+            }
+        }
+        required Attribute attribute = 1;
+        required ConstraintType constraint = 2;
+    }
+    message Model {
+        repeated Constraint constraints = 1;
+        optional DataModel model = 2;
+    }
+}
+
+// option optimize_for = LITE_RUNTIME;
+option optimize_for = SPEED;

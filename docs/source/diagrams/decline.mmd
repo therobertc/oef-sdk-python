@@ -1,0 +1,16 @@
+sequenceDiagram
+        participant Buyer
+        participant Seller
+
+        activate Buyer
+        activate Seller
+        note over Buyer,Seller: after the CFP and the first Propose...
+
+        note left of Buyer: on_propose() called
+        note left of Buyer: here the buyer can send a counter-proposal, or an accept.
+        Buyer->>Buyer: send_decline()
+        Buyer->>Seller: Decline()
+        note right of Seller: on_decline() called
+
+        deactivate Buyer
+        deactivate Seller

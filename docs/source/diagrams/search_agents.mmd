@@ -1,0 +1,14 @@
+sequenceDiagram
+        Agent ->> Agent: search_agents()
+        activate Agent
+        Agent ->> OEF Node: (search_id, query)
+        deactivate Agent
+        activate OEF Node
+        Agent ->> Agent: run()
+        activate Agent
+        OEF Node ->> Agent: (search_id, List[agent_ids])
+        deactivate OEF Node
+        activate Agent
+        note left of Agent: on_search_result() called
+        deactivate Agent
+        deactivate Agent

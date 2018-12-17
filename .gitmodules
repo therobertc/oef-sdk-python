@@ -1,0 +1,4 @@
+[submodule "docker-images"]
+	path = docker-images
+	url = ../../uvue-git/docker-images.git
+	branch = master

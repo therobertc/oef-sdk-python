@@ -1,0 +1,19 @@
+sequenceDiagram
+        participant Sender
+        participant OEF Node
+        participant Recipient
+        Sender ->> OEF Node: connect()
+        Recipient ->> OEF Node: connect()
+        Recipient ->> Recipient: run()
+        activate Recipient
+        note right of Recipient: wait for events...
+        Sender ->> Sender: send_message()
+        activate Sender
+        Sender ->> OEF Node: (dialogue_id, dest, content)
+        deactivate Sender
+        OEF Node ->> Recipient: (dialogue_id, origin, content)
+        activate Recipient
+        note right of Recipient: on_message() called
+        deactivate Recipient
+        deactivate Recipient
+

@@ -1,0 +1,110 @@
+syntax = "proto2";
+
+package fetch.oef.pb;
+
+import "query.proto";
+import "fipa.proto";
+
+message Agent {
+    message Server {
+        message ID {
+            required string public_key = 1;
+        }       
+        message Answer {
+            required string answer = 1;
+        }
+    }
+    message Message {
+        required int32 dialogue_id = 1;
+        required string destination = 2;
+        oneof payload {
+            bytes content = 3;
+            Fipa.Message fipa = 4;
+        }
+    }
+}
+
+message Server {
+    message Phrase {
+        message Failure {
+        }
+        oneof payload {
+            string phrase = 1;
+            Failure failure = 2;
+        }
+    }
+    message Connected {
+        required bool status = 1;
+    }
+    message SearchResult {
+        required int32 search_id = 1;
+        repeated string agents = 2;
+    }
+    
+    message AgentMessage {
+        message Content {
+            required int32 dialogue_id = 1;
+            required string origin = 2;
+            oneof payload {
+                  bytes content = 3;
+                  Fipa.Message fipa = 4;
+            }
+        }
+        message Error {
+            enum Operation {
+                REGISTER_SERVICE = 0;
+                UNREGISTER_SERVICE = 1;
+                REGISTER_DESCRIPTION = 2;
+                UNREGISTER_DESCRIPTION = 3;
+                SEND_MESSAGE = 4;
+            }
+            required Operation operation = 1;
+            optional int32 dialogue_id = 2;
+            optional int32 msg_id = 3;
+        }
+        oneof payload {
+            Content content = 1; // from agent
+            Error error = 2;   // from oef
+            SearchResult agents = 3; // from oef
+        }
+    }
+}
+
+message AgentDescription {
+    required Query.Instance description = 1; 
+}
+
+message AgentSearch {
+    required int32 search_id = 1;
+    required Query.Model query = 2;
+}
+
+message Envelope {
+    message Nothing {}
+    oneof payload {
+        Agent.Message send_message = 1;
+        AgentDescription register_service = 2;
+        AgentDescription unregister_service = 3;
+        AgentDescription register_description = 4;
+        Nothing unregister_description = 5;
+        AgentSearch search_services = 6;
+        AgentSearch search_agents = 7;
+    }
+}
+
+message Data {
+    required string name = 1;
+    required string type = 2; // should be enum
+    repeated string values = 3;
+}
+
+message Boolean {
+    required bool status = 1;
+}
+
+message Transaction {
+    required uint64 amount = 1;
+}
+
+// option optimize_for = LITE_RUNTIME;
+option optimize_for = SPEED;

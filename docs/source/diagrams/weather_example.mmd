@@ -1,0 +1,41 @@
+sequenceDiagram
+        participant Weather Client
+        participant OEF Node
+        participant Weather Service
+        Weather Service->>OEF Node: (1) register service;
+        Weather Service->>Weather Service: run(), waiting for messages...
+        activate Weather Service
+        Weather Client->>OEF Node: (2) search services;
+        Weather Client->>Weather Client: run(), waiting for messages...
+        activate Weather Client
+        OEF Node->>Weather Client: (3) search result;
+        activate Weather Client
+        note left of Weather Client: on_search_result() called
+        Weather Client->>OEF Node: (4) CFP(query):
+        deactivate Weather Client
+        OEF Node->>Weather Service: CFP(query);
+        activate Weather Service
+        note right of Weather Service:on_cfp() called;
+        Weather Service ->>OEF Node: (5) Propose(id, price)
+        deactivate Weather Service
+        OEF Node ->>Weather Client: Propose(id, price)
+        activate Weather Client
+        note left of Weather Client: on_propose() called;
+        Weather Client->>OEF Node: (6) Accept(id)
+        deactivate Weather Client
+        OEF Node->>Weather Service: Accept(id)
+        activate Weather Service
+        note right of Weather Service:on_accept() called;
+        Weather Service ->>OEF Node: (7) Message(temperature)
+        Weather Service ->>OEF Node: Message(air_pressure)
+        Weather Service ->>OEF Node: Message(humidity)
+        deactivate Weather Service
+        OEF Node ->>Weather Client: Message(temperature)
+        OEF Node ->>Weather Client: Message(air_pressure)
+        OEF Node ->>Weather Client: Message(humidity)
+        activate Weather Client
+        note left of Weather Client: on_message() called;
+        Weather Client->>Weather Client: stop()
+        deactivate Weather Client
+        deactivate Weather Service
+        deactivate Weather Client

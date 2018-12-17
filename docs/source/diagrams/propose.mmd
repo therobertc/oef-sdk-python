@@ -1,0 +1,33 @@
+sequenceDiagram
+        participant Buyer
+        participant Seller
+        Seller ->> Seller: run()
+        activate Seller
+
+        #send cfp
+        Buyer->>Buyer: send_cfp()
+        activate Buyer
+        Buyer ->> Seller: CFP(query)
+        deactivate Buyer
+
+        # seller receives CFP and send Propose
+        activate Seller
+        note right of Seller: on_cfp() called
+
+        Buyer->>Buyer: run()
+        activate Buyer
+
+        Seller->>Seller: send_propose()
+        Seller->>Buyer: Propose(proposal)
+        deactivate Seller
+
+        # buyer receives Propose
+        activate Buyer
+        note left of Buyer: on_propose() called
+
+        deactivate Buyer
+        deactivate Seller
+        deactivate Buyer
+
+
+

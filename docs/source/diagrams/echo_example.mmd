@@ -1,0 +1,27 @@
+sequenceDiagram
+        participant Echo Client
+        participant OEF Node
+        participant Echo Service
+        Echo Service->>OEF Node: (1) register service;
+        Echo Service->>Echo Service: run(), waiting for messages...
+        activate Echo Service
+        Echo Client->>OEF Node: (2) search services;
+        Echo Client->>Echo Client: run(), waiting for messages...
+        activate Echo Client
+        OEF Node->>Echo Client: (3) search result;
+        activate Echo Client
+        note left of Echo Client: on_search_result() called
+        Echo Client->>OEF Node: (4) "hello" to "echo_server":
+        deactivate Echo Client
+        OEF Node->>Echo Service: (5) "hello" from "echo_client";
+        activate Echo Service
+        note right of Echo Service:on_message() called;
+        Echo Service ->>OEF Node: (7) "hello" to "echo_client"
+        deactivate Echo Service
+        OEF Node ->>Echo Client: (8) "hello" from "echo_server"
+        activate Echo Client
+        note left of Echo Client: on_message() called;
+        Echo Client->>Echo Client: stop()
+        deactivate Echo Client
+        deactivate Echo Service
+        deactivate Echo Client

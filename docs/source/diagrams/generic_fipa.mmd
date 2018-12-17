@@ -1,0 +1,18 @@
+sequenceDiagram
+        participant Buyer
+        participant Seller
+        Buyer ->> Seller: CFP(query)
+        alt
+            Seller->>Buyer: Decline()
+        else
+            Seller->>Buyer: Propose()
+            alt
+                Buyer->>Seller: Decline()
+            else propose
+                Buyer->>Seller: Propose()
+            else accept
+                Buyer->>Seller: Accept()
+            end
+        end
+
+
