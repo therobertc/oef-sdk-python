@@ -1,5 +1,5 @@
 [flake8]
-ignore = E226,E302,E41
+ignore = E226,E302,E41,F401
 max-line-length = 160
 exclude = test/* oef_python/*_pb2.py
 max-complexity = 10

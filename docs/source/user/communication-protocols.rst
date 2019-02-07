@@ -30,6 +30,9 @@ The main difference between the `Agent Directory` and the `Service Directory` is
   a service agent can register himself multiple time with a different description (and hence discoverable
   in multiple ways).
 
+Every message has a `message id` field, that is used from the OEF Node to refer to a specific
+message, e.g. for error handling (see `Error Handling`_).
+
 It is important to notice that most of the above-mentioned methods are `asynchronous`, which means that the agent does not
 waits explicitly for the result of the operations.
 
@@ -37,14 +40,14 @@ Establish a connection: `Handshake`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This step is the `condition sine qua non` to interact with the OEF Node, and hence with other OEF agents.
-It is implemented in the :func:`~oef.agents.OEFCoreInterface.connect` method.
+It is implemented in the :func:`~oef.agents.Agent.connect` method.
 
 .. code-block:: python
 
     from oef.agents import OEFAgent
 
     # assuming that an OEF Node is running at localhost on port 3333:
-    agent = OEFAgent("agent_identifier", 127.0.0.1", 3333)
+    agent = OEFAgent("agent_identifier", "127.0.0.1", 3333)
 
     # do the handshake
     agent.connect()
@@ -59,7 +62,7 @@ Register agent
 
 In order to become discoverable from other agents, an agent can register itself in the `Agent Directory`.
 
-To do so, we use the :func:`~oef.agents.OEFCoreInterface.register_agent` method:
+To do so, we use the :func:`~oef.agents.Agent.register_agent` method:
 
 .. code-block:: python
 
@@ -82,19 +85,21 @@ To do so, we use the :func:`~oef.agents.OEFCoreInterface.register_agent` method:
         }, car_data_model)
 
     # register the agent in the Agent Directory
-    agent.register_agent(agent_description)
+    msg_id = 0
+    agent.register_agent(msg_id, agent_description)
 
 
 Unregister agent
 ~~~~~~~~~~~~~~~~
 
-We can unregister an agent by using the method :func:`~oef.agents.OEFCoreInterface.unregister_agent`:
+We can unregister an agent by using the method :func:`~oef.agents.Agent.unregister_agent`:
 
-Using the example of before:
+Using the previous example:
 
 .. code-block:: python
 
-    agent.unregister_agent()
+    msg_id = 1
+    agent.unregister_agent(msg_id)
 
 
 Notice that we don't need to use a description since our agent in the `Agent Directory` is uniquely identified
@@ -104,7 +109,7 @@ Register service
 ~~~~~~~~~~~~~~~~
 
 We can register an agent as a service in the `Service Directory`
-by using the method :func:`~oef.agents.OEFCoreInterface.register_service`:
+by using the method :func:`~oef.agents.Agent.register_service`:
 
 
 .. code-block:: python
@@ -129,8 +134,8 @@ by using the method :func:`~oef.agents.OEFCoreInterface.register_service`:
 
     }, bookshop_data_model)
 
-
-    agent.register_service(service_description)
+    msg_id = 0
+    agent.register_service(msg_id, service_description)
 
 Notice: nothing prevents us to register `the same agent` (with the same public key) in the Agent Directory,
 or as another type of service in the `Service Directory`.
@@ -139,16 +144,17 @@ Unregister service
 ~~~~~~~~~~~~~~~~~~
 
 We can unregister a service with a given description from the `Service Directory`
-by using the method :func:`~oef.agents.OEFCoreInterface.unregister_service`:
+by using the method :func:`~oef.agents.Agent.unregister_service`:
 
 Continuing with the bookshop example:
 
 .. code-block:: python
 
-    agent.unregister_service(service_description)
+    msg_id = 1
+    agent.unregister_service(msg_id, service_description)
 
 
-Notice that, differently from the :func:`~oef.agents.OEFCoreInterface.unregister_agent` described before, we need to
+Notice that, differently from the :func:`~oef.agents.Agent.unregister_agent` described before, we need to
 provide the description that we used when registered because we might have registered our service
 with multiple descriptions.
 
@@ -161,7 +167,7 @@ In order to find other agents, we have to query the OEF Node about the kind of a
 To do so, we can use the API provided by the :mod:`~oef.query` module and building :class:`~oef.query.Query` object
 as explained in :ref:`query-language`
 
-Once our query is ready, we can use the :func:`~oef.agents.OEFCoreInterface.search_agents` method.
+Once our query is ready, we can use the :func:`~oef.agents.Agent.search_agents` method.
 
 Suppose we want to search cars whose manufacturer is ``Ferrari``. Continuing with the definition of the data model
 `in this section <#register-agent>`__.
@@ -180,12 +186,13 @@ Suppose we want to search cars whose manufacturer is ``Ferrari``. Continuing wit
     # OEF Node to refer to the right search request when
     # it will send back the result.
     search_id = 0
-    agent.search_agents(0, ferrari_query)
+    agent.search_agents(search_id, ferrari_query)
 
+    # NOTICE: you have to implement `on_search_result` to handle the search result from the OEF Node.
     agent.run()
 
 
-The ``search_agents`` function will send the search message to the OEF Node, which eventually will answer with a
+The :func:`~oef.agents.Agent.search_agents` function will send the search message to the OEF Node, which eventually will answer with a
 *list of the public keys* of agents satisfying the query.
 
 In this specific case, the OEF Node will return a list of the public keys of all the OEF agents that:
@@ -195,13 +202,13 @@ In this specific case, the OEF Node will return a list of the public keys of all
 - their manufacturer is ``Ferrari``.
 
 The :func:`~oef.agents.Agent.run` is mandatory to receive the search result. Indeed, the main loop of the agent
-will automatically call the :func:`~oef.core.ConnectionInterface.on_search_result` method implemented by the class, as soon as the
+will automatically call the :func:`~oef.agents.Agent.on_search_result` method implemented by the class, as soon as the
 search result message has been received.
 
 Hence, to specify a behaviour when a search result is called, you need to:
 
 - extend the class :class:`~oef.agents.OEFAgent`
-- override the :func:`~oef.core.ConnectionInterface.on_search_result` method.
+- override the :func:`~oef.agents.Agent.on_search_result` method.
 
 .. code-block:: python
 
@@ -219,8 +226,8 @@ sent the search request.
 Search services
 ~~~~~~~~~~~~~~~
 
-The :func:`~oef.agents.OEFCoreInterface.search_services` method is the analogous counterpart of the
-:func:`~oef.agents.OEFCoreInterface.search_agents`, but used to discover services in the `Service Directory`.
+The :func:`~oef.agents.Agent.search_services` method is the analogous counterpart of the
+:func:`~oef.agents.Agent.search_agents`, but used to discover services in the `Service Directory`.
 
 Suppose we want to search bookshop located in ``Cambridge``. Continuing with the definition of the data model
 `in this section <#register-service>`__.
@@ -245,8 +252,8 @@ Suppose we want to search bookshop located in ``Cambridge``. Continuing with the
     agent.run()
 
 
-The ``search_services`` function will send the search message to the OEF Node, which eventually will answer with a
-*list of the public keys* of services satisfying the query.
+The :func:`~oef.agents.Agent.search_services` function will send the search message to the OEF Node,
+which eventually will answer with a *list of the public keys* of services satisfying the query.
 
 In this specific case, the OEF Node will return a list of the public keys of all the OEF service agents that:
 
@@ -255,13 +262,13 @@ In this specific case, the OEF Node will return a list of the public keys of all
 - their "city" field has value ``Cambridge``.
 
 The :func:`~oef.agents.Agent.run` is mandatory to receive the search result. Indeed, the main loop of the agent
-will automatically call the :func:`~oef.core.ConnectionInterface.on_search_result` method implemented by the class,
+will automatically call the :func:`~oef.agents.Agent.on_search_result` method implemented by the class,
 as soon as the search result message has been received.
 
 Hence, to specify a behaviour when a search result is called, you need to:
 
-- extend the class :class:`~oef.agents.OEFAgent`
-- override the :func:`~oef.core.ConnectionInterface.on_search_result` method.
+- extend the class :class:`~oef.agents.Agent`
+- override the :func:`~oef.core.Agent.on_search_result` method.
 
 .. code-block:: python
 
@@ -277,6 +284,18 @@ sent the search request.
 .. mermaid:: ../diagrams/search_services.mmd
 
 
+Disconnect
+~~~~~~~~~~
+
+To explicitly disconnect the agent from the OEF Node:
+
+.. code-block:: python
+
+    agent.disconnect()
+
+It's not a mandatory step, but it is a good practice to clean up the allocated resources.
+
+
 Interaction with other OEF Agents
 ---------------------------------
 
@@ -289,19 +308,22 @@ In this section we explain the main two methods to communicate with other OEF ag
 Using general-purpose messages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The OEF Node provides a way to exchange information via the method :func:`~oef.agents.OEFCoreInterface.send_message`.
+The OEF Node provides a way to exchange information via the method :func:`~oef.agents.Agent.send_message`.
 
 Let's call `Sender` the sender agent and `Recipient` the recipient agent.
 
-The `Sender` can send the message by using the :func:`~oef.agents.OEFCoreInterface.send_message`.
+The `Sender` can send the message by using the :func:`~oef.agents.Agent.send_message`.
 Then, the OEF Node will forward it to the `Recipient`. When the `Recipient` agent call the function
 :func:`~oef.agents.Agent.run`, then it will start to read from the connection with the OEF Node, and the
-:func:`~oef.core.DialogueInterface.on_message` handler is called.
+:func:`~oef.agents.Agent.on_message` handler is called.
 
 
 Here's the code snippet that shows how the `Sender` can send a simple message.
 
 .. code-block:: python
+
+    # the identifier of the message
+    msg_id = 0
 
     # the identifier of the dialogue
     dialogue_id = 0
@@ -313,13 +335,14 @@ Here's the code snippet that shows how the `Sender` can send a simple message.
     content = b"hello"
 
     # send the message
-    sender_agent.send_message(dialogue_id, destination, content)
+    sender_agent.send_message(msg_id, dialogue_id, destination, content)
 
 
-On the other side, the `Recipient` must implement the :func:`~oef.agents.DialogueInterface.on_message` to specify the
+On the other side, the `Recipient` must implement the :func:`~oef.agents.Agent.on_message` to specify the
 behaviour when a message arrives.
 
-The parameters ``dialogue_id`` and ``content`` below will be the same of ``dialogue_id`` and ``content`` above.
+The parameters ``msg_id``, ``dialogue_id`` and ``content`` below will be the same of ``msg_id``,
+``dialogue_id`` and ``content`` above.
 The parameter ``origin`` will be the public key of the sender, ``"sender"``.
 
 
@@ -328,7 +351,7 @@ The parameter ``origin`` will be the public key of the sender, ``"sender"``.
 
     class RecipientAgent(OEFAgent):
 
-        def on_message(origin: str, dialogue_id: int, content: bytes):
+        def on_message(msg_id: int, origin: str, dialogue_id: int, content: bytes):
             ...
 
 Here follows the sequence diagram that depicts the message exchange:
@@ -378,12 +401,12 @@ CFP
 
 The `CFP` (`Call For Proposals`) message is used to start the negotiation.
 
-You can use the method :func:`~oef.core.OEFCoreInterface.send_cfp` to send a `CFP` message.
+You can use the method :func:`~oef.agents.Agent.send_cfp` to send a `CFP` message.
 
 Besides the fields described above, you need to define the query associated with the Call For Proposals.
 It can be one of:
 
-    * :class:`oef.query.Query`: the `Seller` will answer with the resources matching the query.
+    * :class:`~oef.query.Query`: the `Seller` will answer with the resources matching the query.
     * ``bytes``: a generic information that should make sense to the ``Seller``
     * ``None``: a `CFP` that do not specify any constraint.
 
@@ -407,10 +430,10 @@ It can be one of:
     query = Query([])
 
     # send the CFP
-    agent.send_cfp(dialogue_id, destination, query, msg_id, target)
+    agent.send_cfp(dialogue_id, msg_id, destination, target, query)
 
 
-On the other side, the `Seller` should implement the :func:`~oef.core.DialogueInterface.on_cfp` to specify the
+On the other side, the `Seller` should implement the :func:`~oef.agents.Agent.on_cfp` to specify the
 behaviour when a message arrives.
 
 The parameters ``dialogue_id``, ``msg_id``, ``target`` and ``query`` below will be the same of above.
@@ -422,9 +445,9 @@ The parameter ``origin`` will be the public key of the sender (in this case ``"b
 
     class Seller(OEFAgent):
 
-        def on_cfp(self, origin: str,
+        def on_cfp(self, msg_id: int,
                    dialogue_id: int,
-                   msg_id: int,
+                   origin: str,
                    target: int,
                    query: CFP_TYPES) -> None:
             ...
@@ -440,24 +463,24 @@ Propose
 The `Propose` message is used to make a proposal to the opponent of the negotiation.
 It can answer to a `CFP` or another `Propose` (in that case it would be a counter-`Propose`).
 
-You can use the method :func:`~oef.core.OEFCoreInterface.send_propose` to send a `Propose` message.
+You can use the method :func:`~oef.agents.Agent.send_propose` to send a `Propose` message.
 
 Besides the fields described above, you need to define the actual proposal.
 It can be one of:
 
-    * a list of :class:`oef.schema.Description`: the `Seller` will answer with the resources matching the query.
+    * a list of :class:`~oef.schema.Description`: the `Seller` will answer with the resources matching the query.
     * ``bytes``: a generic information that should make sense to the opponent.
 
-Assume, for example, that the following code is executed inside the :func:`~oef.core.DialogueInterface.on_cfp` of
+Assume, for example, that the following code is executed inside the :func:`~oef.agents.Agent.on_cfp` of
 the `Seller`.
 
 .. code-block:: python
 
     class Seller(OEFAgent):
 
-        def on_cfp(self, origin: str,
+        def on_cfp(self, msg_id: int,
                    dialogue_id: int,
-                   msg_id: int,
+                   origin: str,
                    target: int,
                    query: CFP_TYPES) -> None:
 
@@ -477,7 +500,7 @@ the `Seller`.
             agent.send_propose(dialogue_id, destination, proposal, new_msg_id, new_target)
 
 
-On the other side, the opponent should implement the :func:`~oef.core.DialogueInterface.on_propose` to specify the
+On the other side, the opponent should implement the :func:`~oef.agents.Agent.on_propose` to specify the
 behaviour when a message arrives.
 
 The parameters ``dialogue_id``, ``msg_id``, ``target`` and ``proposal`` below will be the same of above.
@@ -489,11 +512,11 @@ The parameter ``origin`` will be the public key of the sender (in this case ``"s
 
     class Buyer(OEFAgent):
 
-        def on_propose(self, origin: str,
+        def on_propose(self, msg_id: int,
                        dialogue_id: int,
-                       msg_id: int,
+                       origin: str,
                        target: int,
-                       proposal: PROPOSE_TYPES) -> None:
+                       proposals: PROPOSE_TYPES) -> None:
             ...
 
 Here follows the sequence diagram that depicts the message exchange:
@@ -508,20 +531,20 @@ Accept
 The `Accept` message is used to accept one of the previous `Propose`, and it ends the negotiation.
 Obviously, both the `Buyer` and the `Seller` can accept one of the previous opponent's proposals.
 
-You can use the method :func:`~oef.core.OEFCoreInterface.send_accept` to send a `Accept` message.
+You can use the method :func:`~oef.agents.Agent.send_accept` to send a `Accept` message.
 
-Assume, for example, that the following code is executed inside the :func:`~oef.core.DialogueInterface.on_propose` of
+Assume, for example, that the following code is executed inside the :func:`~oef.agents.Agent.on_propose` of
 the `Buyer`.
 
 .. code-block:: python
 
     class Buyer(OEFAgent):
 
-        def on_propose(self, origin: str,
+        def on_propose(self, msg_id: int,
                        dialogue_id: int,
-                       msg_id: int,
+                       origin: str,
                        target: int,
-                       proposal: PROPOSE_TYPES) -> None:
+                       proposals: PROPOSE_TYPES) -> None:
 
             # do some stuff with the proposal
             ...
@@ -536,7 +559,7 @@ the `Buyer`.
             agent.send_accept(dialogue_id, destination, new_msg_id, new_target)
 
 
-On the other side, the `Seller` should implement the :func:`~oef.core.DialogueInterface.on_accept` to specify the
+On the other side, the `Seller` should implement the :func:`~oef.agents.Agent.on_accept` to specify the
 behaviour when a message arrives.
 
 The parameters ``dialogue_id``, ``msg_id``, ``target`` below will be the same of above.
@@ -548,9 +571,9 @@ The parameter ``origin`` will be the public key of the sender (in this case ``"b
 
     class Seller(OEFAgent):
 
-        def on_accept(self, origin: str,
+        def on_accept(self, msg_id: int,
                       dialogue_id: int,
-                      msg_id: int,
+                      origin: str,
                       target: int) -> None:
             ...
 
@@ -574,18 +597,18 @@ Obviously, both the `Buyer` and the `Seller` can send a `Decline`.
 The `Decline`'s target must be the `CFP` that initiated the negotiation. It can be even sent by the `Seller` on the
 `Buyer` 's `CFP`.
 
-You can use the method :func:`~oef.core.OEFCoreInterface.send_decline` to send a `Decline` message.
+You can use the method :func:`~oef.agents.Agent.send_decline` to send a `Decline` message.
 
-Assume, for example, that the following code is executed inside the :func:`~oef.core.DialogueInterface.on_propose` of
+Assume, for example, that the following code is executed inside the :func:`~oef.agents.Agent.on_propose` of
 the `Buyer`.
 
 .. code-block:: python
 
     class Buyer(OEFAgent):
 
-        def on_propose(self, origin: str,
+        def on_propose(self, msg_id: int,
                        dialogue_id: int,
-                       msg_id: int,
+                       origin: str,
                        target: int,
                        proposal: PROPOSE_TYPES) -> None:
 
@@ -602,7 +625,7 @@ the `Buyer`.
             agent.send_decline(dialogue_id, destination, new_msg_id, new_target)
 
 
-On the other side, the `Seller` should implement the :func:`~oef.core.DialogueInterface.on_decline` to specify the
+On the other side, the `Seller` should implement the :func:`~oef.agents.Agent.on_decline` to specify the
 behaviour when a message arrives.
 
 The parameters ``dialogue_id``, ``msg_id``, ``target`` below will be the same of above.
@@ -614,9 +637,9 @@ The parameter ``origin`` will be the public key of the sender (in this case ``"b
 
     class Seller(OEFAgent):
 
-        def on_decline(self, origin: str,
+        def on_decline(self, msg_id: int,
                        dialogue_id: int,
-                       msg_id: int,
+                       origin: str,
                        target: int) -> None:
             ...
 
@@ -676,4 +699,69 @@ CFP - Propose - Propose - Accept
 .. mermaid:: ../diagrams/fipa_examples/cfp-propose-propose-accept.mmd
     :align: center
     :caption: The Seller accepts the `Buyers`'s counter-`Propose`.
+
+
+.. _error-handling:
+
+Error Handling
+--------------
+
+The OEF supports two ways to report errors:
+
+- One related to the interactions with the OEF: `OEF Errors`
+- One related to the interactions with other agents: `Dialogue Errors`.
+
+OEF Error
+~~~~~~~~~
+
+The OEF Error is sent back to an OEF Agent when a particular operation he submitted fail for some
+reason.
+
+More specifically, if an agent receives an OEF Error, one of the following problems might have happened:
+
+- following a :func:`~oef.agents.Agent.register_agent` request, if the description received by the OEF Node is invalid.
+- following a :func:`~oef.agents.Agent.register_service` request, if something fails when the OEF Node try to store the
+  service description in the Service Directory.
+- following a :func:`~oef.agents.Agent.unregister_service` request, when we tries to unregister a non-existent
+  service.
+
+In order to correctly handle an OEF Error message, you have to specify the behaviour
+of the :func:`~oef.agents.Agent.on_oef_error` method.
+
+.. code-block:: python
+
+    class MyAgent(OEFAgent):
+
+        def on_oef_error(self, answer_id: int, operation: OEFErrorOperation):
+            ...
+
+
+The ``answer_id`` parameter will be the same of the ``msg_id`` used to submit the request.
+The ``operation`` parameter specify which kind of error has been received.
+See :class:`~oef.messages.OEFErrorOperation` for further details.
+
+Dialogue Error
+~~~~~~~~~~~~~~
+
+The Dialogue Error is sent back to an OEF Agent when a particular operation he submitted fail for some
+reason.
+
+More specifically, if an agent receives a Dialogue Error, one of the following problems might have happened:
+
+- following a :func:`~oef.agents.Agent.send_message` (or any ``send_*`` method), if the destination is not currently connected.
+
+
+In order to correctly handle a Dialogue Error message, you have to specify the behaviour
+of the :func:`~oef.agents.Agent.on_dialogue_error` method.
+
+
+.. code-block:: python
+
+    class MyAgent(OEFAgent):
+
+        def on_dialogue_error(self, answer_id: int, dialogue_id: int, origin: str):
+            ...
+
+The ``answer_id``, ``dialogue_id`` and ``origin`` parameters will be the same of, respectively,
+the ``msg_id``, ``dialogue_id`` and ``destination`` parameter used to send the agent message.
 

@@ -7,7 +7,7 @@ is running in your local machine.
 
 Then, run `echo_service.py` script:
 
-    python3 echo_service.py
+    python echo_service.py
     
 In another terminal, run:
 

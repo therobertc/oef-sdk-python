@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # ------------------------------------------------------------------------------
@@ -20,10 +21,11 @@
 
 
 """
-Script that clone the oef-core repository and build the oef-core Node.
-You must have the oef-core built in order to run tests successfully.
+Script that clones the oef-core repository and builds the oef-core project.
+You must have built the oef-core in order to run the tests successfully.
 """
 import os
+import shutil
 import subprocess
 import sys
 
@@ -38,6 +40,7 @@ def build_project(project_root, build_root, options):
         print(' - {} = {}'.format(key, value))
     print('\n')
 
+    shutil.rmtree(build_root, ignore_errors=True)
     # ensure the build directory exists
     os.makedirs(build_root, exist_ok=True)
 
@@ -63,6 +66,7 @@ def build_project(project_root, build_root, options):
 def main():
 
     if not os.path.exists("oef-core"):
+        print("Cloning fetchai/oef-core repository...")
         os.system("git clone --recursive https://github.com/fetchai/oef-core.git oef-core")
     else:
         try:

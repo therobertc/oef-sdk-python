@@ -127,9 +127,12 @@ setup(
         'Intended Audience :: Developers',
         'Natural Language :: English',
         'License :: OSI Approved :: Apache Software License',
+        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
     install_requires=["protobuf"],
+    tests_require=["tox"],
+    python_requires='>=3.5',
     license=about['__license__'],
 )

@@ -37,9 +37,9 @@ from oef.messages import CFP_TYPES, PROPOSE_TYPES
 
 class Negotiator(OEFAgent):
 
-    def on_cfp(self, origin: str,
+    def on_cfp(self, msg_id: int,
                dialogue_id: int,
-               msg_id: int,
+               origin: str,
                target: int,
                query: CFP_TYPES):
         """
@@ -54,16 +54,16 @@ class Negotiator(OEFAgent):
         if 0 <= choice < 0.75:
             # send Propose
             print("{}->>{}:Propose()".format(self.public_key, origin))
-            self.send_propose(dialogue_id, origin, b"propose", msg_id + 1, msg_id)
+            self.send_propose(msg_id, dialogue_id, origin, msg_id + 1, b"propose")
         elif 0.75 <= choice <= 1.0:
             # send Decline
             print("{}->>{}:Decline()".format(self.public_key, origin))
-            self.send_decline(dialogue_id, origin, msg_id + 1, msg_id)
+            self.send_decline(msg_id, dialogue_id, origin, msg_id + 1)
             self.stop()
 
-    def on_propose(self, origin: str,
+    def on_propose(self, msg_id: int,
                    dialogue_id: int,
-                   msg_id: int,
+                   origin: str,
                    target: int,
                    proposal: PROPOSE_TYPES):
         """
@@ -79,30 +79,30 @@ class Negotiator(OEFAgent):
         if 0 <= choice < 0.5:
             # send Propose
             print("{}->>{}:Propose()".format(self.public_key, origin))
-            self.send_propose(dialogue_id, origin, b"propose", msg_id + 1, msg_id)
+            self.send_propose(msg_id, dialogue_id, origin, msg_id + 1, b"propose")
         elif 0.5 <= choice < 0.75:
             # send Accept and stop the agent
             print("{}->>{}:Accept()".format(self.public_key, origin))
-            self.send_accept(dialogue_id, origin, msg_id + 1, msg_id)
+            self.send_accept(msg_id, dialogue_id, origin, msg_id + 1)
             self.stop()
         elif 0.75 <= choice <= 1.0:
             # send Decline and stop the agent
             print("{}->>{}:Decline()".format(self.public_key, origin))
-            self.send_decline(dialogue_id, origin, msg_id + 1, msg_id)
+            self.send_decline(msg_id, dialogue_id, origin, msg_id + 1)
             self.stop()
 
-    def on_accept(self, origin: str,
+    def on_accept(self, msg_id: int,
                   dialogue_id: int,
-                  msg_id: int,
+                  origin: str,
                   target: int, ):
         """
         Handle Accept messages. Stop the agent.
         """
         self.stop()
 
-    def on_decline(self, origin: str,
+    def on_decline(self, msg_id: int,
                    dialogue_id: int,
-                   msg_id: int,
+                   origin: str,
                    target: int, ):
         """
         Handle Decline messages. Stop the agent.
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     print("sequenceDiagram")
     print("{}->>{}:CFP()".format(buyer.public_key, seller.public_key))
 
-    buyer.send_cfp(0, "seller", None)
+    buyer.send_cfp(1, 0, "seller", 0, None)
 
     asyncio.get_event_loop().run_until_complete(asyncio.gather(
         buyer.async_run(),

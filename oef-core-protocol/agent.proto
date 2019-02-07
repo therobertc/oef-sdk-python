@@ -37,8 +37,7 @@ message Server {
         required bool status = 1;
     }
     message SearchResult {
-        required int32 search_id = 1;
-        repeated string agents = 2;
+        repeated string agents = 1;
     }
     
     message AgentMessage {
@@ -50,22 +49,25 @@ message Server {
                   Fipa.Message fipa = 4;
             }
         }
-        message Error {
+        message OEFError {
             enum Operation {
                 REGISTER_SERVICE = 0;
                 UNREGISTER_SERVICE = 1;
                 REGISTER_DESCRIPTION = 2;
                 UNREGISTER_DESCRIPTION = 3;
-                SEND_MESSAGE = 4;
             }
             required Operation operation = 1;
-            optional int32 dialogue_id = 2;
-            optional int32 msg_id = 3;
         }
+        message DialogueError {
+            required int32 dialogue_id = 1;
+            required string origin = 2;
+        }
+        required int32 answer_id = 1;
         oneof payload {
-            Content content = 1; // from agent
-            Error error = 2;   // from oef
-            SearchResult agents = 3; // from oef
+            Content content = 2; // from agent
+            OEFError oef_error = 3;   // from oef
+            SearchResult agents = 4; // from oef
+            DialogueError dialogue_error = 5;
         }
     }
 }
@@ -75,20 +77,20 @@ message AgentDescription {
 }
 
 message AgentSearch {
-    required int32 search_id = 1;
-    required Query.Model query = 2;
+    required Query.Model query = 1;
 }
 
 message Envelope {
     message Nothing {}
+    required int32 msg_id = 1;
     oneof payload {
-        Agent.Message send_message = 1;
-        AgentDescription register_service = 2;
-        AgentDescription unregister_service = 3;
-        AgentDescription register_description = 4;
-        Nothing unregister_description = 5;
-        AgentSearch search_services = 6;
-        AgentSearch search_agents = 7;
+        Agent.Message send_message = 2;
+        AgentDescription register_service = 3;
+        AgentDescription unregister_service = 4;
+        AgentDescription register_description = 5;
+        Nothing unregister_description = 6;
+        AgentSearch search_services = 7;
+        AgentSearch search_agents = 8;
     }
 }
 

@@ -30,6 +30,7 @@ At the moment, we support four types of attributes:
 * integers
 * booleans
 * floats
+* locations, i.e. pairs of (latitude, longitude)
 
 An attribute can be `optional`, in the sense that instantiation of the attribute is not mandatory by the instances of
 the data model.
@@ -51,15 +52,16 @@ For each of this fields, we can define an attribute in the SDK by using the :cla
 
 .. code-block:: python
 
-    from oef.schema import AttributeSchema
-    attr_title    = AttributeSchema("title" ,          str,   True,  "The title of the book.")
-    attr_author   = AttributeSchema("author" ,         str,   True,  "The author of the book.")
-    attr_genre    = AttributeSchema("genre",           str,   True,  "The genre of the book.")
-    attr_year     = AttributeSchema("year",            int,   True,  "The year of publication of the book.")
-    attr_avg_rat  = AttributeSchema("average_rating",  float, False, "The average rating of the book.")
-    attr_isbn     = AttributeSchema("ISBN",            str,   True,  "The ISBN.")
-    attr_ebook    = AttributeSchema("ebook_available", bool,  False, "If the book can be sold as an e-book.")
-
+    from oef.schema import AttributeSchema, Location
+    attr_title    = AttributeSchema("title" ,          str,      True,  "The title of the book.")
+    attr_author   = AttributeSchema("author" ,         str,      True,  "The author of the book.")
+    attr_genre    = AttributeSchema("genre",           str,      True,  "The genre of the book.")
+    attr_year     = AttributeSchema("year",            int,      True,  "The year of publication of the book.")
+    attr_avg_rat  = AttributeSchema("average_rating",  float,    False, "The average rating of the book.")
+    attr_isbn     = AttributeSchema("ISBN",            str,      True,  "The ISBN.")
+    attr_ebook    = AttributeSchema("ebook_available", bool,     False, "If the book can be sold as an e-book.")
+    attr_bookshop = AttributeSchema("bookshop_pos",    Location, False, "The location of the bookshop where you "
+                                                                        "can find the book")
 
 Let's focus on the parameters of the :class:`~oef.schema.AttributeSchema` constructor:
 
@@ -68,7 +70,7 @@ Let's focus on the parameters of the :class:`~oef.schema.AttributeSchema` constr
    E.g. the attribute ``year`` can only be an integer, whereas the ``average_rating`` can only be a
    floating-point number.
 
-   The Python types supported are: ``str``, ``int``, ``bool`` and ``float``.
+   The supported types are: ``str``, ``int``, ``bool``, ``float`` and :class:`~oef.schema.Location`.
 3. the third one is a boolean that specifies whether the attribute is `always required` or it `can be omitted`. For
    example, we might not be able to specify the ``ebook_available`` attribute, maybe because it's not applicable
    to some kind of books.
@@ -95,6 +97,7 @@ in the same structure. We can do it in the following way:
         attr_avg_rat,
         attr_isbn,
         attr_ebook,
+        attr_bookshop
     ], "A data model to describe books.")
 
 
@@ -125,7 +128,8 @@ In the SDK, the class that implements the description is :class:`~oef.schema.Des
         "year":             1986,
         "average_rating":   4.5,
         "ISBN":             "0-670-81302-8",
-        "ebook_available":  True
+        "ebook_available":  True,
+        "bookshop_pos":     Location(52.2057092, 0.1183431)
     }, book_model)
 
     _1984 = Description({
@@ -146,4 +150,3 @@ The attributes are instantiated with a dictionary that has:
 
 Notice that in the latter book we omitted the ``average_rating`` field. We are allowed to do that because of the
 ``average_rating`` attribute is not mandatory.
-

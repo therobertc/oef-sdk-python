@@ -113,7 +113,7 @@ tags
 
 # build
 Node
-log.txt*
+log*.txt*
 
 # pycharm
 .idea

@@ -50,6 +50,8 @@ It would be nice to extend this example to work with multiple weather stations, 
 
 
 """
+import json
+import pprint
 
 from weather_schema import WEATHER_DATA_MODEL, TEMPERATURE_ATTR, AIR_PRESSURE_ATTR, HUMIDITY_ATTR
 from oef.agents import OEFAgent
@@ -65,27 +67,31 @@ class WeatherClient(OEFAgent):
 
     def on_search_result(self, search_id: int, agents: List[str]):
         """For every agent returned in the service search, send a CFP to obtain resources from them."""
-        print("Agent found: {0}".format(agents))
+        if len(agents) == 0:
+            print("[{}]: No agent found. Stopping...".format(self.public_key))
+            self.stop()
+            return
+
+        print("[{0}]: Agent found: {1}".format(self.public_key, agents))
         for agent in agents:
-            print("Sending to agent {0}".format(agent))
-            # we send a query with no constraints, meaning "give me all the resources you can propose."
-            query = Query([])
-            self.send_cfp(0, agent, query)
+            print("[{0}]: Sending to agent {1}".format(self.public_key, agent))
+            # we send a 'None' query, meaning "give me all the resources you can propose."
+            query = None
+            self.send_cfp(1, 0, agent, 0, query)
 
-    def on_propose(self, origin: str, dialogue_id: int, msg_id: int, target: int, proposals: PROPOSE_TYPES):
+    def on_propose(self, msg_id: int, dialogue_id: int, origin: str, target: int, proposals: PROPOSE_TYPES):
         """When we receive a Propose message, answer with an Accept."""
-        print("Received propose from agent {0}".format(origin))
+        print("[{0}]: Received propose from agent {1}".format(self.public_key, origin))
         for i, p in enumerate(proposals):
-            print("Proposal {}: {}".format(i, p.values))
-        print("Accepting Propose.")
-        self.send_accept(dialogue_id, origin, msg_id + 1, msg_id)
+            print("[{0}]: Proposal {1}: {2}".format(self.public_key, i, p.values))
+        print("[{0}]: Accepting Propose.".format(self.public_key))
+        self.send_accept(msg_id, dialogue_id, origin, msg_id + 1)
 
-    def on_message(self, origin: str,
-                   dialogue_id: int,
-                   content: bytes):
+    def on_message(self, msg_id: int, dialogue_id: int, origin: str, content: bytes):
         """Extract and print data from incoming (simple) messages."""
-        key, value = content.decode().split(":")
-        print("Received measurement from {}: {}={}".format(origin, key, float(value)))
+        data = json.loads(content.decode("utf-8"))
+        print("[{0}]: Received measurement from {1}: {2}".format(self.public_key, origin, pprint.pformat(data)))
+        self.stop()
 
 
 if __name__ == "__main__":
@@ -98,11 +104,15 @@ if __name__ == "__main__":
     # - provide measurements for temperature
     # - provide measurements for air pressure
     # - provide measurements for humidity
-    query = Query([Constraint(TEMPERATURE_ATTR, Eq(True)),
-                   Constraint(AIR_PRESSURE_ATTR, Eq(True)),
-                   Constraint(HUMIDITY_ATTR, Eq(True))],
+    query = Query([Constraint(TEMPERATURE_ATTR.name, Eq(True)),
+                   Constraint(AIR_PRESSURE_ATTR.name, Eq(True)),
+                   Constraint(HUMIDITY_ATTR.name, Eq(True))],
                   WEATHER_DATA_MODEL)
 
     agent.search_services(0, query)
 
-    agent.run()
+    try:
+        agent.run()
+    finally:
+        agent.stop()
+        agent.disconnect()

@@ -17,19 +17,18 @@
 #   limitations under the License.
 #
 # ------------------------------------------------------------------------------
-
-
 import inspect
 import os
 import subprocess
 import time
 
-import pytest
-
 from hypothesis import settings
 
+"""The timeout used to test asynchronicity."""
 _ASYNCIO_DELAY = 0.1
-settings(max_examples=1000)
+
+"""Settings for the Hypothesis package"""
+settings(max_examples=100)
 
 ROOT_DIR = ".."
 OUR_DIRECTORY = os.path.dirname(inspect.getfile(inspect.currentframe()))
@@ -37,12 +36,13 @@ FULL_PATH = [OUR_DIRECTORY, ROOT_DIR, "oef-core", "build", "apps", "node", "OEFN
 PATH_TO_NODE_EXEC = os.path.join(*FULL_PATH)
 
 
-@pytest.fixture(scope="session")
-def oef_network_node():
-    """Set up an instance of the OEF Node.
-    It assumes that the oef-core repository has been cloned in the root folder of the project."""
-    FNULL = open(os.devnull, 'w')
-    p = subprocess.Popen(PATH_TO_NODE_EXEC, stdout=FNULL, stderr=subprocess.STDOUT)
-    time.sleep(0.01)
-    yield
-    p.kill()
+class NetworkOEFNode:
+
+    def __enter__(self):
+        FNULL = open(os.devnull, 'w')
+        self.p = subprocess.Popen(PATH_TO_NODE_EXEC, stdout=FNULL, stderr=subprocess.STDOUT)
+        time.sleep(0.01)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.p.terminate()
+        self.p.kill()

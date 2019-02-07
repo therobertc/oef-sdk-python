@@ -7,7 +7,7 @@ is running in your local machine.
 
 Then, run `weather_station.py` script:
 
-    python3 weather_station.py
+    python weather_station.py
     
 In another terminal, run:
 

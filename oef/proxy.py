@@ -32,7 +32,7 @@ import asyncio
 import logging
 import struct
 from collections import defaultdict
-from typing import Optional, Awaitable, Tuple, List
+from typing import Optional, Awaitable, Tuple, List, Dict
 
 import oef.agent_pb2 as agent_pb2
 from oef.core import OEFProxy
@@ -49,7 +49,9 @@ DEFAULT_OEF_NODE_PORT = 3333
 
 
 class OEFConnectionError(ConnectionError):
-    pass
+    """
+    This exception is used whenever an error occurs during the connection to the OEF Node.
+    """
 
 
 class OEFNetworkProxy(OEFProxy):
@@ -81,6 +83,14 @@ class OEFNetworkProxy(OEFProxy):
         self._server_reader = None
         self._server_writer = None
 
+    def is_connected(self) -> bool:
+        """
+        Check if the proxy is currently connected to the OEF Node.
+
+        :return: ``True`` if the proxy is connected, ``False`` otherwise.
+        """
+        return self._connection is not None
+
     async def _connect_to_server(self, event_loop) -> Awaitable[Tuple[asyncio.StreamReader, asyncio.StreamWriter]]:
         """
         Connect to the OEF Node.
@@ -98,9 +108,7 @@ class OEFNetworkProxy(OEFProxy):
         :return: ``None``
         :raises OEFConnectionError: if the connection has not been established yet.
         """
-        try:
-            assert self._server_writer is not None
-        except AssertionError:
+        if self._server_writer is None:
             raise OEFConnectionError("Connection not established yet. Please use 'connect()'.")
         serialized_msg = protobuf_msg.SerializeToString()
         nbytes = struct.pack("I", len(serialized_msg))
@@ -109,25 +117,26 @@ class OEFNetworkProxy(OEFProxy):
 
     async def _receive(self):
         """
-        Send a Protobuf message.
+        Receive a Protobuf message.
 
-        :param protobuf_msg: the message to be sent
         :return: ``None``
         :raises OEFConnectionError: if the connection has not been established yet.
         """
-        try:
-            assert self._server_reader is not None
-        except AssertionError:
+        if self._server_reader is None:
             raise OEFConnectionError("Connection not established yet. Please use 'connect()'.")
         nbytes_packed = await self._server_reader.read(len(struct.pack("I", 0)))
         logger.debug("received ${0}".format(nbytes_packed))
-        nbytes = struct.unpack("I", nbytes_packed)
-        logger.debug("received unpacked ${0}".format(nbytes[0]))
-        logger.debug("Preparing to receive ${0} bytes ...".format(nbytes[0]))
-        return await self._server_reader.read(nbytes[0])
+        nbytes = struct.unpack("I", nbytes_packed)[0]
+        logger.debug("received unpacked ${0}".format(nbytes))
+        logger.debug("Preparing to receive ${0} bytes ...".format(nbytes))
+        data = b""
+        while len(data) < nbytes:
+            data += await self._server_reader.read(nbytes - len(data))
+            logger.debug("Read bytes: {}".format(len(data)))
+        return data
 
     async def connect(self) -> bool:
-        if self._connection is not None:
+        if self.is_connected() and not self._server_writer.transport.is_closing():
             return True
 
         event_loop = asyncio.get_event_loop()
@@ -154,20 +163,20 @@ class OEFNetworkProxy(OEFProxy):
         pb_status.ParseFromString(data)
         return pb_status.status
 
-    def register_agent(self, agent_description: Description) -> None:
-        msg = RegisterDescription(agent_description)
+    def register_agent(self, msg_id: int, agent_description: Description):
+        msg = RegisterDescription(msg_id, agent_description)
         self._send(msg.to_envelope())
 
-    def register_service(self, service_description: Description) -> None:
-        msg = RegisterService(service_description)
+    def register_service(self, msg_id: int, service_description: Description):
+        msg = RegisterService(msg_id, service_description)
         self._send(msg.to_envelope())
 
-    def unregister_agent(self) -> None:
-        msg = UnregisterDescription()
+    def unregister_agent(self, msg_id: int):
+        msg = UnregisterDescription(msg_id)
         self._send(msg.to_envelope())
 
-    def unregister_service(self, service_description: Description) -> None:
-        msg = UnregisterService(service_description)
+    def unregister_service(self, msg_id: int, service_description: Description):
+        msg = UnregisterService(msg_id, service_description)
         self._send(msg.to_envelope())
 
     def search_agents(self, search_id: int, query: Query) -> None:
@@ -178,43 +187,35 @@ class OEFNetworkProxy(OEFProxy):
         msg = SearchServices(search_id, query)
         self._send(msg.to_envelope())
 
-    def send_message(self, dialogue_id: int, destination: str, msg: bytes) -> None:
-        msg = Message(dialogue_id, destination, msg)
+    def send_message(self, msg_id: int, dialogue_id: int, destination: str, msg: bytes) -> None:
+        msg = Message(msg_id, dialogue_id, destination, msg)
         self._send(msg.to_envelope())
 
-    def send_cfp(self, dialogue_id: int,
-                 destination: str,
-                 query: CFP_TYPES,
-                 msg_id: Optional[int] = 1,
-                 target: Optional[int] = 0) -> None:
-        msg = CFP(dialogue_id, destination, query, msg_id, target)
+    def send_cfp(self, msg_id: int, dialogue_id: int, destination: str, target: int, query: CFP_TYPES):
+        msg = CFP(msg_id, dialogue_id, destination, target, query)
         self._send(msg.to_envelope())
 
-    def send_propose(self, dialogue_id: int,
-                     destination: str,
-                     proposals: PROPOSE_TYPES,
-                     msg_id: int,
-                     target: Optional[int] = None) -> None:
-        msg = Propose(dialogue_id, destination, proposals, msg_id, target)
+    def send_propose(self, msg_id: int, dialogue_id: int, destination: str, target: int, proposals: PROPOSE_TYPES):
+        msg = Propose(msg_id, dialogue_id, destination, target, proposals)
         self._send(msg.to_envelope())
 
-    def send_accept(self, dialogue_id: int, destination: str, msg_id: int,
-                    target: Optional[int] = None) -> None:
-        msg = Accept(dialogue_id, destination, msg_id, target)
+    def send_accept(self, msg_id: int, dialogue_id: int, destination: str, target: int):
+        msg = Accept(msg_id, dialogue_id, destination, target)
         self._send(msg.to_envelope())
 
-    def send_decline(self, dialogue_id: int,
-                     destination: str,
-                     msg_id: int,
-                     target: Optional[int] = None) -> None:
-        msg = Decline(dialogue_id, destination, msg_id, target)
+    def send_decline(self, msg_id: int, dialogue_id: int, destination: str, target: int):
+        msg = Decline(msg_id, dialogue_id, destination, target)
         self._send(msg.to_envelope())
 
-    def stop(self) -> None:
+    async def stop(self) -> None:
         """
         Tear down resources associated with this Proxy, i.e. the writing connection with the server.
         """
+        await self._server_writer.drain()
         self._server_writer.close()
+        self._server_writer = None
+        self._server_reader = None
+        self._connection = None
 
 
 class OEFLocalProxy(OEFProxy):
@@ -236,22 +237,30 @@ class OEFLocalProxy(OEFProxy):
             self._lock = asyncio.Lock()
             self._task = None
 
-            self.read_queue = asyncio.Queue()  # type: asyncio.Queue
-            self.queues = {}  # type: Dict[str, asyncio.Queue]
+            self._read_queue = asyncio.Queue()  # type: asyncio.Queue
+            self._queues = {}  # type: Dict[str, asyncio.Queue]
             self.loop = asyncio.get_event_loop()
 
-        def connect(self, public_key: str) -> Optional[asyncio.Queue]:
+        def __enter__(self):
+            self._task = asyncio.ensure_future(self.run())
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.stop()
+
+        def connect(self, public_key: str) -> Optional[Tuple[asyncio.Queue, asyncio.Queue]]:
             """
             Connect a public key to the node.
 
             :param public_key: the public key of the agent.
             :return: an asynchronous queue, that constitutes the communication channel.
             """
-            if public_key in self.queues:
+            if public_key in self._queues:
                 return None
+
             queue = asyncio.Queue()
-            self.queues[public_key] = queue
-            return queue
+            self._queues[public_key] = queue
+            return self._read_queue, queue
 
         async def _process_messages(self) -> None:
             """
@@ -261,7 +270,7 @@ class OEFLocalProxy(OEFProxy):
             """
             while True:
                 try:
-                    data = await self.read_queue.get()  # type: Tuple[str, BaseMessage]
+                    data = await self._read_queue.get()  # type: Tuple[str, BaseMessage]
                 except asyncio.CancelledError:
                     logger.debug("Local Node: loop cancelled.")
                     break
@@ -287,6 +296,7 @@ class OEFLocalProxy(OEFProxy):
             """
             if self._task:
                 self._task.cancel()
+                asyncio.get_event_loop().run_until_complete(self._task)
 
         def register_agent(self, public_key: str, agent_description: Description) -> None:
             """
@@ -328,6 +338,7 @@ class OEFLocalProxy(OEFProxy):
             Unregister a service agent.
 
             :param public_key: the public key of the service agent to be unregistered.
+            :param service_description: the description of the service agent to be unregistered.
             :return: ``None``
             """
             self.loop.run_until_complete(self._lock.acquire())
@@ -337,14 +348,41 @@ class OEFLocalProxy(OEFProxy):
             self._lock.release()
 
         def search_agents(self, public_key: str, search_id: int, query: Query) -> None:
-            """Since the agent directory and the instance checking are not implemented,
-            just send a dummy search result message, returning all the connected agents."""
-            self._send_search_result(public_key, search_id, sorted(self.agents.keys()))
+            """
+            Search the agents in the local Agent Directory, and send back the result.
+            The provided query will be checked with every instance of the Agent Directory.
+
+            :param public_key: the source of the search request.
+            :param search_id: the search identifier associated with the search request.
+            :param query: the query that constitutes the search.
+            :return: ``None``
+            """
+
+            result = []
+            for agent_public_key, description in self.agents.items():
+                if query.check(description):
+                    result.append(agent_public_key)
+
+            self._send_search_result(public_key, search_id, sorted(set(result)))
 
         def search_services(self, public_key: str, search_id: int, query: Query) -> None:
-            """Since the service directory and the instance checking are not implemented,
-            just send a dummy search result message, returning all the connected agents."""
-            self._send_search_result(public_key, search_id, sorted(self.services.keys()))
+            """
+            Search the agents in the local Service Directory, and send back the result.
+            The provided query will be checked with every instance of the Agent Directory.
+
+            :param public_key: the source of the search request.
+            :param search_id: the search identifier associated with the search request.
+            :param query: the query that constitutes the search.
+            :return: ``None``
+            """
+
+            result = []
+            for agent_public_key, descriptions in self.services.items():
+                for description in descriptions:
+                    if query.check(description):
+                        result.append(agent_public_key)
+
+            self._send_search_result(public_key, search_id, sorted(set(result)))
 
         def _send_agent_message(self, origin: str, msg: AgentMessage) -> None:
             """
@@ -358,6 +396,7 @@ class OEFLocalProxy(OEFProxy):
             destination = e.send_message.destination
 
             new_msg = agent_pb2.Server.AgentMessage()
+            new_msg.answer_id = msg.msg_id
             new_msg.content.origin = origin
             new_msg.content.dialogue_id = e.send_message.dialogue_id
 
@@ -367,7 +406,7 @@ class OEFLocalProxy(OEFProxy):
             elif payload == "fipa":
                 new_msg.content.fipa.CopyFrom(e.send_message.fipa)
 
-            self.queues[destination].put_nowait(new_msg.SerializeToString())
+            self._queues[destination].put_nowait(new_msg.SerializeToString())
 
         def _send_search_result(self, public_key: str, search_id: int, agents: List[str]) -> None:
             """
@@ -376,23 +415,31 @@ class OEFLocalProxy(OEFProxy):
             :param public_key: the public key of the agent to whom to send the search result.
             :param search_id: the id of the search request.
             :param agents: the list of public key of the agents/services to be returned.
-            :return:
+            :return: ``None``
             """
             msg = agent_pb2.Server.AgentMessage()
-            msg.agents.search_id = search_id
+            msg.answer_id = search_id
             msg.agents.agents.extend(agents)
-            self.queues[public_key].put_nowait(msg.SerializeToString())
+            self._queues[public_key].put_nowait(msg.SerializeToString())
 
     def __init__(self, public_key: str, local_node: LocalNode):
+        """
+        Initialize a OEF proxy for a local OEF Node (that is, :class:`~oef.proxy.OEFLocalProxy.LocalNode`
+
+        :param public_key: the public key used in the protocols.
+        :param local_node: the Local OEF Node object. This reference must be the same across the agents of interest.
+        """
+
         super().__init__(public_key)
         self.local_node = local_node
-        self.read_queue = asyncio.Queue()
-        self.write_queue = self.local_node.read_queue
+        self._connection = None
+        self._read_queue = None
+        self._write_queue = None
 
-    def register_agent(self, agent_description: Description) -> None:
+    def register_agent(self, msg_id: int, agent_description: Description) -> None:
         self.local_node.register_agent(self.public_key, agent_description)
 
-    def register_service(self, service_description: Description) -> None:
+    def register_service(self, msg_id: int, service_description: Description) -> None:
         self.local_node.register_service(self.public_key, service_description)
 
     def search_agents(self, search_id: int, query: Query) -> None:
@@ -401,47 +448,54 @@ class OEFLocalProxy(OEFProxy):
     def search_services(self, search_id: int, query: Query) -> None:
         self.local_node.search_services(self.public_key, search_id, query)
 
-    def unregister_agent(self) -> None:
+    def unregister_agent(self, msg_id: int) -> None:
         self.local_node.unregister_agent(self.public_key)
 
-    def unregister_service(self, service_description: Description) -> None:
+    def unregister_service(self, msg_id: int, service_description: Description) -> None:
         self.local_node.unregister_service(self.public_key, service_description)
 
-    def send_message(self, dialogue_id: int, destination: str, msg: bytes) -> None:
-        msg = Message(dialogue_id, destination, msg)
+    def send_message(self, msg_id: int, dialogue_id: int, destination: str, msg: bytes):
+        msg = Message(msg_id, dialogue_id, destination, msg)
         self._send(msg)
 
-    def send_cfp(self, dialogue_id: int, destination: str, query: CFP_TYPES, msg_id: Optional[int] = 1,
-                 target: Optional[int] = 0) -> None:
-        msg = CFP(dialogue_id, destination, query, msg_id, target)
+    def send_cfp(self, msg_id: int, dialogue_id: int, destination: str, target: int, query: CFP_TYPES) -> None:
+        msg = CFP(msg_id, dialogue_id, destination, target, query)
         self._send(msg)
 
-    def send_propose(self, dialogue_id: int, destination: str, proposals: PROPOSE_TYPES, msg_id: int,
-                     target: Optional[int] = None) -> None:
-        msg = Propose(dialogue_id, destination, proposals, msg_id, target)
+    def send_propose(self, msg_id: int, dialogue_id: int, destination: str, target: int,
+                     proposals: PROPOSE_TYPES) -> None:
+        msg = Propose(msg_id, dialogue_id, destination, target, proposals)
         self._send(msg)
 
-    def send_accept(self, dialogue_id: int, destination: str, msg_id: int, target: Optional[int] = None) -> None:
-        msg = Accept(dialogue_id, destination, msg_id, target)
+    def send_accept(self, msg_id: int, dialogue_id: int, destination: str, target: int) -> None:
+        msg = Accept(msg_id, dialogue_id, destination, target)
         self._send(msg)
 
-    def send_decline(self, dialogue_id: int, destination: str, msg_id: int, target: Optional[int] = None) -> None:
-        msg = Decline(dialogue_id, destination, msg_id, target)
+    def send_decline(self, msg_id: int, dialogue_id: int, destination: str, target: int) -> None:
+        msg = Decline(msg_id, dialogue_id, destination, target)
         self._send(msg)
 
     async def connect(self) -> bool:
-        queue = self.local_node.connect(self.public_key)
-        if not queue:
+        if self._connection is not None:
+            return True
+
+        self._connection = self.local_node.connect(self.public_key)
+        if self._connection is None:
             return False
-        self.read_queue = queue
+        self._write_queue, self._read_queue = self._connection
         return True
 
     async def _receive(self) -> bytes:
-        data = await self.read_queue.get()
+        data = await self._read_queue.get()
         return data
 
     def _send(self, msg: BaseMessage) -> None:
-        self.write_queue.put_nowait((self.public_key, msg))
+        self._write_queue.put_nowait((self.public_key, msg))
 
-    def stop(self):
-        pass
+    async def stop(self):
+        self._connection = None
+        self._read_queue = None
+        self._write_queue = None
+
+    def is_connected(self) -> bool:
+        return self._connection is not None

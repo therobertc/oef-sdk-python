@@ -26,13 +26,9 @@ sequenceDiagram
         OEF Node->>Weather Service: Accept(id)
         activate Weather Service
         note right of Weather Service:on_accept() called;
-        Weather Service ->>OEF Node: (7) Message(temperature)
-        Weather Service ->>OEF Node: Message(air_pressure)
-        Weather Service ->>OEF Node: Message(humidity)
+        Weather Service ->>OEF Node: (7) Message(data)
         deactivate Weather Service
-        OEF Node ->>Weather Client: Message(temperature)
-        OEF Node ->>Weather Client: Message(air_pressure)
-        OEF Node ->>Weather Client: Message(humidity)
+        OEF Node ->>Weather Client: Message(data)
         activate Weather Client
         note left of Weather Client: on_message() called;
         Weather Client->>Weather Client: stop()

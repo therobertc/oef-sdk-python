@@ -28,13 +28,12 @@ message Fipa {
     message Decline {
     }
     message Message {
-        required int32 msg_id = 1;
-        required int32 target = 2;
+        required int32 target = 1;
         oneof msg {
-            Cfp cfp = 3;
-            Propose propose = 4;
-            Accept accept = 5;
-            Decline decline = 6;
+            Cfp cfp = 2;
+            Propose propose = 3;
+            Accept accept = 4;
+            Decline decline = 5;
         }
     }
 }

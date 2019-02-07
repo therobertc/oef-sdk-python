@@ -1,7 +1,7 @@
-include README.md LICENSE HISTORY.rst AUTHORS.rst requirements.txt Pipfile Pipfile.lock
+include README.md LICENSE HISTORY.rst AUTHORS.rst Pipfile Pipfile.lock
 
-recursive-include examples *.txt *.py
+recursive-include examples *
 recursive-include test *.py
 recursive-include oef-core-protocol *
-recursive-include docker-images/fetch-ledger-develop-image *
 recursive-include scripts *.py
+recursive-include docs *

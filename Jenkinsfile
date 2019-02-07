@@ -2,55 +2,31 @@ pipeline {
 
     agent {
         docker {
-                image "gcr.io/organic-storm-201412/oef-python-ci-build:latest"
+            image "gcr.io/organic-storm-201412/oef-sdk-python-image:latest"
             }
         }
 
     stages {
 
-
-        stage('Pre-build'){
-
-            steps {
-                sh 'apt-get install -y protobuf-compiler'
-                sh 'pip3 install -r requirements.txt'
-            }
-        }
-
         stage('Builds & Tests'){
 
             parallel{
 
-                stage('Build & Test'){
-                    stages{
-                        stage('Build') {
-                            steps {
-                                sh 'python3 setup.py install'
-                                sh 'python3 -m py_compile oef/*.py'
-                            }
-                        }
-                        stage('Test') {
-                            steps {
-                                dir ("oef-core"){
-                                    git url: 'https://github.com/uvue-git/oef-core.git'
-                                }
-                                sh 'cd oef-core && mkdir build && cd build && cmake .. && make -j4'
-                                sh 'tox'
-                            }
-                        }
+                stage('Test') {
+                    steps {
+                        sh 'tox'
                     }
                 }
 
                 stage('Lint'){
                     steps{
-                        sh 'flake8 oef --exclude=oef/*_pb2.py'
-                        sh 'pylint -d all oef'
+                        sh 'tox -e flake8'
                     }
                 }
 
-                stage('Build docs'){
+                stage('Docs'){
                     steps{
-                        sh 'cd docs && make html'
+                        sh 'tox -e docs'
                     }
                 }
 

@@ -20,6 +20,22 @@ oef.core module
     :undoc-members:
     :show-inheritance:
 
+oef.dialogue module
+-------------------
+
+.. automodule:: oef.dialogue
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+oef.helpers module
+------------------
+
+.. automodule:: oef.helpers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 oef.logger module
 -----------------
 

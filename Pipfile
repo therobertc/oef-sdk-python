@@ -1,0 +1,26 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pytest = "*"
+pytest-cov = "*"
+tox = "*"
+flake8 = "*"
+hypothesis = "*"
+hypothesis-pytest = "*"
+sphinxcontrib-mermaid = "*"
+GitPython = "*"
+Sphinx = "*"
+sphinx_rtd_theme = "*"
+ipython = "*"
+jupyter = "*"
+pylint = "*"
+
+[packages]
+protobuf = "*"
+oef = {path = "."}
+
+[requires]
+python_version = "3"

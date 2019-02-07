@@ -46,7 +46,8 @@ Other methods (e.g. ``on_cfp``, ``on_error`` etc.) are omitted, since not needed
 
 
 from oef.agents import OEFAgent
-from oef.schema import DataModel, Description
+from oef.schema import DataModel, Description, AttributeSchema
+
 
 # Uncomment the following lines if you want more output
 # import logging
@@ -59,10 +60,11 @@ class EchoServiceAgent(OEFAgent):
     The class that defines the behaviour of the echo service agent.
     """
 
-    def on_message(self, origin: str, dialogue_id: int, content: bytes):
-        print("Received message: origin={}, dialogue_id={}, content={}".format(origin, dialogue_id, content))
-        print("Sending {} back to {}".format(content, origin))
-        self.send_message(dialogue_id, origin, content)
+    def on_message(self, msg_id: int, dialogue_id: int, origin: str, content: bytes):
+        print("[{}]: Received message: msg_id={}, dialogue_id={}, origin={}, content={}"
+              .format(self.public_key, msg_id, dialogue_id, origin, content))
+        print("[{}]: Sending {} back to {}".format(self.public_key, content, origin))
+        self.send_message(1, dialogue_id, origin, content)
 
 
 if __name__ == '__main__':
@@ -72,11 +74,18 @@ if __name__ == '__main__':
     server_agent.connect()
 
     # register a service on the OEF
-    echo_model = DataModel("echo", [], "echo service.")
-    echo_description = Description({}, echo_model)
+    echo_feature = AttributeSchema("does_echo", bool, True, "Whether the service agent can do echo or not.")
+    echo_model = DataModel("echo", [echo_feature], "echo service.")
+    echo_description = Description({"does_echo": True}, echo_model)
 
-    server_agent.register_service(echo_description)
+    msg_id = 0
+    server_agent.register_service(msg_id, echo_description)
 
     # run the agent
-    print("Waiting for messages...")
-    server_agent.run()
+    print("[{}]: Waiting for messages...".format(server_agent.public_key))
+    try:
+        server_agent.run()
+    finally:
+        print("[{}]: Disconnecting...".format(server_agent.public_key))
+        server_agent.stop()
+        server_agent.disconnect()

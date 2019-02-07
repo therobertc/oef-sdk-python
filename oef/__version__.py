@@ -22,8 +22,8 @@
 __title__ = 'oef'
 __description__ = 'SDK for OEF Agent development.'
 __url__ = 'https://github.com/fetchai/oef-sdk-python.git'
-__version__ = '0.1.0'
-__build__ = 0x000100
+__version__ = '0.2.0'
+__build__ = 0x000200
 __author__ = 'Fetch.AI Limited'
 __license__ = 'Apache 2.0'
 __copyright__ = '2018 Fetch.AI Limited'
